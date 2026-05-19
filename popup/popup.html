@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personio Autofill</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="header">
+        <img class="header__logo" src="../icons/icon-48.png" width="40" height="40" alt="" />
+        <div class="header__text">
+          <h1>Personio Autofill</h1>
+          <p class="header__subtitle">Fill empty attendance days</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2 class="card__title">Personio account</h2>
+        <div class="field">
+          <label for="personio-subdomain">Company subdomain</label>
+          <input
+            id="personio-subdomain"
+            type="text"
+            placeholder="your-company"
+            spellcheck="false"
+            autocomplete="off"
+            required
+          />
+          <p class="field__hint">From <code>your-company.app.personio.com</code></p>
+        </div>
+        <div class="field">
+          <label for="employee-id">Employee ID</label>
+          <input
+            id="employee-id"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]+"
+            placeholder="12345678"
+            spellcheck="false"
+            autocomplete="off"
+            required
+          />
+          <p class="field__hint">Number in the attendance URL path</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Work schedule</h2>
+        <div class="field-grid">
+          <div class="field">
+            <label for="workday-start">Start</label>
+            <input id="workday-start" type="time" required />
+          </div>
+          <div class="field">
+            <label for="workday-end">End</label>
+            <input id="workday-end" type="time" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="break-minutes">Break (minutes)</label>
+          <input id="break-minutes" type="number" min="0" max="240" step="5" required />
+        </div>
+        <button id="save-settings" class="btn btn--ghost" type="button">Save settings</button>
+      </section>
+
+      <section class="card card--actions">
+        <button id="auto-fill" class="btn btn--primary" type="button">
+          <span class="btn__label">Auto fill empty days</span>
+          <span class="btn__hint">Work · Break · Work</span>
+        </button>
+
+        <div class="divider" role="separator">
+          <span>or clear one day</span>
+        </div>
+
+        <div class="revert-row">
+          <div class="field field--inline">
+            <label for="revert-day">Day</label>
+            <input id="revert-day" type="number" min="1" max="31" step="1" aria-label="Day of month to clear" />
+          </div>
+          <button id="revert-day-btn" class="btn btn--danger" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section class="status-panel">
+        <div class="status-panel__head">
+          <span class="status-panel__label">Activity</span>
+        </div>
+        <pre id="status" class="status-panel__log" aria-live="polite">Ready.</pre>
+      </section>
+    </main>
+
+    <script src="../src/personio-config.js"></script>
+    <script src="./popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "personio-attendance-autofill-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chrome extension for safe Personio attendance autofill.",
+  "scripts": {
+    "test": "node --test test/*.spec.js",
+    "pretest:build": "node tests/build-console-pretest.js"
+  }
+}
