@@ -35,9 +35,20 @@ function firstDayOfCurrentMonth() {
 }
 
 function readFormAccount() {
+  const subdomainRaw = els.personioSubdomain.value.trim();
+  const employeeRaw = els.employeeId.value.trim();
+  const parsed = cfg.parseAccountFromPastedText(subdomainRaw);
+
+  if (parsed) {
+    return {
+      personio_subdomain: parsed.personio_subdomain || subdomainRaw,
+      employee_id: employeeRaw || parsed.employee_id || ''
+    };
+  }
+
   return {
-    personio_subdomain: els.personioSubdomain.value,
-    employee_id: els.employeeId.value.trim()
+    personio_subdomain: subdomainRaw,
+    employee_id: employeeRaw
   };
 }
 
@@ -81,14 +92,36 @@ async function getActiveTab() {
   return tab;
 }
 
+/**
+ * Optional host permissions must be requested from the popup (user gesture).
+ * chrome.permissions.request in the service worker returns false without a prompt.
+ */
 async function ensureHostPermission(subdomain) {
-  const response = await chrome.runtime.sendMessage({
-    command: 'ENSURE_HOST_PERMISSION',
-    subdomain
-  });
-  if (!response?.ok) {
-    throw new Error('Host permission for your Personio company was not granted.');
+  const sub = cfg.normalizeSubdomain(subdomain);
+  if (!sub) {
+    throw new Error('Personio company subdomain is required.');
   }
+  const origin = cfg.buildOriginPattern(sub);
+
+  if (await chrome.permissions.contains({ origins: [origin] })) {
+    await chrome.runtime.sendMessage({
+      command: 'REVOKE_OTHER_PERSONIO_ORIGINS',
+      keepOrigin: origin
+    });
+    return;
+  }
+
+  const ok = await chrome.permissions.request({ origins: [origin] });
+  if (!ok) {
+    throw new Error(
+      'Host permission was not granted. Click Save again and choose Allow when Chrome asks to access your Personio company site.'
+    );
+  }
+
+  await chrome.runtime.sendMessage({
+    command: 'REVOKE_OTHER_PERSONIO_ORIGINS',
+    keepOrigin: origin
+  });
 }
 
 async function reregisterContentScripts() {
@@ -118,16 +151,25 @@ async function ensureAttendanceTab(tab, settings) {
 }
 
 async function saveSettings() {
-  const account = readFormAccount();
+  const account = cfg.validateAccountSettings(readFormAccount());
   const schedule = readFormSchedule();
-  cfg.validateAccountSettings(account);
 
-  await ensureHostPermission(account.personio_subdomain);
+  // Persist before permission prompt — the popup often closes when Chrome shows Allow/Deny.
   await chrome.storage.local.set(account);
   await chrome.storage.sync.set(schedule);
   await chrome.storage.sync.remove(ACCOUNT_KEYS);
-  await reregisterContentScripts();
-  setStatus('Settings saved. Reload the attendance tab if commands do not respond.');
+  els.personioSubdomain.value = account.personio_subdomain;
+  els.employeeId.value = account.employee_id;
+
+  try {
+    await ensureHostPermission(account.personio_subdomain);
+    await reregisterContentScripts();
+    setStatus('Settings saved. Reload the attendance tab if commands do not respond.');
+  } catch (error) {
+    setStatus(
+      `Account saved. ${error.message} Reopen the popup and click Save again to finish.`
+    );
+  }
 }
 
 async function loadSettings() {
@@ -137,6 +179,15 @@ async function loadSettings() {
   els.workdayStart.value = settings.workday_start;
   els.workdayEnd.value = settings.workday_end;
   els.breakMinutes.value = String(settings.break_minutes);
+
+  const sub = cfg.normalizeSubdomain(settings.personio_subdomain);
+  if (sub && settings.employee_id) {
+    const origin = cfg.buildOriginPattern(sub);
+    const hasHost = await chrome.permissions.contains({ origins: [origin] });
+    if (!hasHost) {
+      setStatus('Account loaded. Click Save settings to allow access to your Personio site.');
+    }
+  }
 }
 
 function sendTabCommand(tabId, command, extra = {}) {

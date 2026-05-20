@@ -4,7 +4,11 @@ importScripts('../src/personio-config.js');
 
 const cfg = self.PersonioConfig;
 const CONTENT_SCRIPT_ID = 'personio-attendance-scripts';
-const ALLOWED_COMMANDS = new Set(['ENSURE_HOST_PERMISSION', 'REREGISTER_CONTENT_SCRIPTS']);
+const ALLOWED_COMMANDS = new Set([
+  'ENSURE_HOST_PERMISSION',
+  'REVOKE_OTHER_PERSONIO_ORIGINS',
+  'REREGISTER_CONTENT_SCRIPTS'
+]);
 
 const SCRIPT_FILES = [
   'src/personio-config.js',
@@ -144,6 +148,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const sub = message.subdomain || '';
     ensureHostPermissionForSubdomain(sub)
       .then((granted) => sendResponse({ ok: granted }))
+      .catch((error) => sendResponse({ ok: false, message: error.message }));
+    return true;
+  }
+
+  if (message.command === 'REVOKE_OTHER_PERSONIO_ORIGINS') {
+    revokeOtherPersonioOrigins(message.keepOrigin || '')
+      .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, message: error.message }));
     return true;
   }

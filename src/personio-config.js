@@ -14,24 +14,60 @@
     if (!input) return '';
 
     try {
-      if (input.includes('://') || input.includes('/')) {
-        const href = input.includes('://') ? input : `https://${input}`;
+      if (input.includes('personio') || input.includes('://') || input.includes('/')) {
+        const href = input.includes('://') ? input : `https://${input.replace(/^\/+/, '')}`;
         input = new URL(href).hostname;
+      } else if (input.includes('.')) {
+        input = new URL(`https://${input.split('/')[0]}`).hostname;
       }
     } catch (_err) {
-      /* keep raw input */
+      /* keep raw slug */
     }
 
     if (input.endsWith(HOST_SUFFIX)) {
       input = input.slice(0, -HOST_SUFFIX.length);
     }
 
+    const labels = input.split('.').filter(Boolean);
+    if (labels[0] === 'www') {
+      labels.shift();
+    }
+    input = labels.join('.');
+
     const hostParts = input.split('.');
     if (hostParts.length >= 3 && hostParts.slice(-2).join('.') === 'app.personio') {
       input = hostParts.slice(0, -2).join('.');
     }
 
+    input = input.replace(/_/g, '-');
     return input.replace(/[^a-z0-9-]/g, '');
+  }
+
+  /**
+   * Parse subdomain + employee ID when the user pastes a Personio attendance URL.
+   * @param {string} text
+   * @returns {{ personio_subdomain: string, employee_id: string } | null}
+   */
+  function parseAccountFromPastedText(text) {
+    const raw = String(text || '').trim();
+    if (!raw || !/personio/i.test(raw)) {
+      return null;
+    }
+
+    try {
+      const href = raw.includes('://') ? raw : `https://${raw.replace(/^\/+/, '')}`;
+      const url = new URL(href);
+      if (!isPersonioAppHostname(url.hostname)) {
+        return null;
+      }
+      const employeeMatch = url.pathname.match(/\/attendance\/employee\/(\d+)/);
+      return {
+        personio_subdomain: subdomainFromHostname(url.hostname),
+        employee_id: employeeMatch ? employeeMatch[1] : ''
+      };
+    } catch (_err) {
+      return null;
+    }
   }
 
   function buildHostname(subdomain) {
@@ -133,11 +169,16 @@
   }
 
   function validateAccountSettings(settings) {
-    const sub = normalizeSubdomain(settings?.personio_subdomain);
+    const rawSub = String(settings?.personio_subdomain || '').trim();
+    const parsed = parseAccountFromPastedText(rawSub);
+    const sub = parsed?.personio_subdomain || normalizeSubdomain(rawSub);
     if (!sub) {
-      throw new Error('Set your Personio company subdomain in settings (e.g. your-company).');
+      const hint = rawSub
+        ? `Could not parse subdomain from "${rawSub}". Use the slug from your-company.app.personio.com (letters, numbers, hyphens).`
+        : 'Set your Personio company subdomain in settings (e.g. your-company).';
+      throw new Error(hint);
     }
-    const employeeId = String(settings?.employee_id || '').trim();
+    const employeeId = String(settings?.employee_id || parsed?.employee_id || '').trim();
     if (!/^\d+$/.test(employeeId)) {
       throw new Error('Set your Personio employee ID in settings (from the attendance URL).');
     }
@@ -163,6 +204,7 @@
     hasExpectedMonth,
     assertAttendanceLocation,
     validateAccountSettings,
+    parseAccountFromPastedText,
     subdomainFromHostname
   };
 });

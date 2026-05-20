@@ -11,6 +11,14 @@ test('normalizeSubdomain strips host suffix', () => {
   assert.equal(cfg.normalizeSubdomain('acme.app.personio.com'), 'acme');
 });
 
+test('normalizeSubdomain strips www prefix', () => {
+  assert.equal(cfg.normalizeSubdomain('www.acme.app.personio.com'), 'acme');
+});
+
+test('normalizeSubdomain maps underscores to hyphens', () => {
+  assert.equal(cfg.normalizeSubdomain('my_company'), 'my-company');
+});
+
 test('normalizeSubdomain strips attendance URL', () => {
   const url = 'https://acme.app.personio.com/attendance/employee/99?viewMode=monthly';
   assert.equal(cfg.normalizeSubdomain(url), 'acme');
@@ -48,4 +56,11 @@ test('assertAttendanceLocation rejects http', () => {
 
 test('validateAccountSettings rejects empty subdomain', () => {
   assert.throws(() => cfg.validateAccountSettings({ personio_subdomain: '', employee_id: '1' }));
+});
+
+test('validateAccountSettings parses full attendance URL in subdomain field', () => {
+  const url = 'https://acme.app.personio.com/attendance/employee/12345?viewMode=monthly';
+  const account = cfg.validateAccountSettings({ personio_subdomain: url, employee_id: '' });
+  assert.equal(account.personio_subdomain, 'acme');
+  assert.equal(account.employee_id, '12345');
 });
