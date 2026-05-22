@@ -1,2 +1,4 @@
-store/generate_zip.sh
+personio-store.zip
 store/assets/*
+store/personio-store
+.DS_Store
